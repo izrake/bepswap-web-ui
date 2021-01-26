@@ -1,13 +1,15 @@
 import React from 'react';
 
-import { Route, Switch } from 'react-router-dom';
+import { Redirect, Route, Switch } from 'react-router-dom';
 
 import asyncComponent from 'helpers/AsyncFunc';
+
+import { FixmeType } from 'types/bepswap';
 
 type AppRoute = {
   path: string;
   exact?: boolean;
-  component: ReturnType<typeof asyncComponent>;
+  component: FixmeType;
 };
 
 const routes: AppRoute[] = [
@@ -27,6 +29,10 @@ const routes: AppRoute[] = [
   {
     path: 'swap/:symbolpair',
     component: asyncComponent(() => import('../SwapSend')),
+  },
+  {
+    path: 'send/:symbol',
+    component: asyncComponent(() => import('../SendView')),
   },
   {
     path: 'pool/:symbol/new',
@@ -61,7 +67,7 @@ const routes: AppRoute[] = [
     component: asyncComponent(() => import('../ApiDocView')),
   },
   {
-    path: 'transaction',
+    path: 'tx',
     component: asyncComponent(() => import('../TransactionView')),
   },
   {
@@ -70,7 +76,7 @@ const routes: AppRoute[] = [
   },
   {
     path: '*',
-    component: asyncComponent(() => import('../404')),
+    component: <Redirect to="/404" />,
   },
 ];
 

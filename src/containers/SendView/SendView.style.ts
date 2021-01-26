@@ -1,10 +1,11 @@
 import Icon, { InfoCircleOutlined } from '@ant-design/icons';
-import { Popover } from 'antd';
+import { Popover, Form } from 'antd';
 import Paragraph from 'antd/lib/typography/Paragraph';
 import styled from 'styled-components';
 import { palette } from 'styled-theme';
 
-import Button from 'components/uielements/button';
+import UnstyledInput from 'components/uielements/input';
+import Label from 'components/uielements/label';
 import ContentView from 'components/utility/contentView';
 
 import { media, cleanTag } from 'helpers/styleHelper';
@@ -20,10 +21,8 @@ export const SwapAssetCard = styled.div`
 
   .swaptool-container {
     display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 20px;
-    display: none;
+    flex-direction: column;
+    margin-bottom: 8px;
   }
 
   .drag-confirm-wrapper {
@@ -139,63 +138,23 @@ export const ContentWrapper = styled(ContentView)`
   }
 `;
 
-export const CardFormHolder = styled.div`
-  padding-top: 10px;
-  margin: 10px 0;
-
-  .addressInput-wrapper {
-    margin-left: 4px;
-  }
-
-  &.slip-protection {
-    .ant-popover-arrow {
-      border-bottom: none;
-      border-left: none;
-    }
-
-    .slip-input {
-      width: 50px;
-      margin: 0 8px;
-    }
-
-    button {
-      width: 21px;
-      height: 21px;
-      min-width: 0px;
-      padding-top: 2px;
-      padding-left: 4px;
-      padding-right: 4px;
-      border-radius: 50%;
-
-      svg {
-        font-size: 15px;
-      }
-    }
-  }
-`;
-
 export const PopoverContainer = styled(Popover)``;
 
-export const CardForm = styled.div`
+export const CardForm = styled(Form)`
   display: flex;
   flex-direction: row;
   align-items: center;
-  > * {
-    margin-right: 10px;
-    &:last-child {
-      margin-right: 0;
-    }
-  }
+
+  width: 100%;
 `;
 
-export const CardFormItem = styled.div`
+export const CardFormItem = styled(Form.Item)`
   flex-grow: 1;
 `;
 
 export const CardFormItemError = styled.div`
   font-size: 12px;
-  color: ${palette('text', 0)};
-  padding-top: 6px;
+  color: ${palette('error', 0)};
 `;
 
 export const CardFormItemCloseButton = styled(Icon).attrs({
@@ -217,10 +176,10 @@ export const FeeParagraph = styled(Paragraph)`
 export const SliderSwapWrapper = styled.div`
   display: flex;
   flex-direction: row;
-  padding-left: 10px;
   align-items: center;
   margin-top: 20px;
-  padding-bottom: 20px;
+  padding-left: 10px;
+  padding-bottom: 8px;
   height: 80px;
   .slider {
     flex-grow: 1;
@@ -244,7 +203,7 @@ export const SliderSwapWrapper = styled.div`
   ${media.sm`
     .swap-wrapper {
       width: 170px;
-    }  
+    }
   `}
 `;
 
@@ -273,9 +232,12 @@ export const PopoverIcon = styled(InfoCircleOutlined)`
   margin: 0 10px;
 `;
 
-export const InverseButton = styled(Button)`
-  &.ant-btn {
-    padding: 0 2px;
-    min-width: 35px !important;
+export const Input = styled(UnstyledInput)`
+  &.ant-input {
+    width: 100%;
   }
+`;
+
+export const FormLabel = styled(Label)`
+  padding-bottom: 4px;
 `;

@@ -3,7 +3,12 @@ import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { connect } from 'react-redux';
 import { withRouter, useHistory, useParams } from 'react-router-dom';
 
-import { SwapOutlined, LockOutlined, UnlockOutlined } from '@ant-design/icons';
+import {
+  SwapOutlined,
+  LockOutlined,
+  UnlockOutlined,
+  RetweetOutlined,
+} from '@ant-design/icons';
 import * as RD from '@devexperts/remote-data-ts';
 import { TransferResult } from '@thorchain/asgardex-binance';
 import {
@@ -13,11 +18,13 @@ import {
   BaseAmount,
 } from '@thorchain/asgardex-token';
 import { isValidBN, bn } from '@thorchain/asgardex-util';
+import { Popover } from 'antd';
 import Text from 'antd/lib/typography/Text';
 import BigNumber from 'bignumber.js';
 import * as H from 'history';
 import { compose } from 'redux';
 
+import Helmet from 'components/helmet';
 import PrivateModal from 'components/modals/privateModal';
 import SlipVerifyModal from 'components/modals/slipVerifyModal';
 import AddressInput from 'components/uielements/addressInput';
@@ -28,7 +35,6 @@ import Label from 'components/uielements/label';
 import Modal from 'components/uielements/modal';
 import showNotification from 'components/uielements/notification';
 import Slider from 'components/uielements/slider';
-import StepBar from 'components/uielements/stepBar';
 import TokenCard from 'components/uielements/tokens/tokenCard';
 import Loader from 'components/utility/loaders/pageLoader';
 
@@ -42,14 +48,14 @@ import { RootState } from 'redux/store';
 import * as walletActions from 'redux/wallet/actions';
 import { User, AssetData } from 'redux/wallet/types';
 
-import useFee from 'hooks/useFee';
 import usePrevious from 'hooks/usePrevious';
 import usePrice from 'hooks/usePrice';
 
+import { getAppContainer } from 'helpers/elementHelper';
 import {
   getTickerFormat,
   getSymbolPair,
-  isShortFormatPossible,
+  getShortAmount,
 } from 'helpers/stringHelper';
 import {
   getSwapData,
@@ -79,11 +85,14 @@ import {
   CardFormHolder,
   CardFormItem,
   CardFormItemError,
-  SwapStatusPanel,
+  SwapDataWrapper,
   PopoverContent,
   PopoverContainer,
   FeeParagraph,
   SliderSwapWrapper,
+  LabelInfo,
+  PopoverIcon,
+  InverseButton,
 } from './SwapSend.style';
 import { SwapSendView } from './types';
 
@@ -131,7 +140,17 @@ const SwapSend: React.FC<Props> = (props: Props): JSX.Element => {
 
   const history = useHistory();
   const { symbolpair } = useParams();
-  const { runePrice } = usePrice();
+  const {
+    runePrice,
+    getAsset1RateInAsset2,
+    hasSufficientRuneFee,
+    hasSufficientBnbFee,
+    hasSufficientBnbFeeInBalance,
+    getAmountAfterFee,
+    getThresholdAmount,
+  } = usePrice();
+
+  const [rateType, setRateType] = useState(true);
 
   const swapPair = getSymbolPair(symbolpair);
   const sourceSymbol = swapPair?.source || '';
@@ -183,14 +202,6 @@ const SwapSend: React.FC<Props> = (props: Props): JSX.Element => {
       ),
     [assetsInWallet, enabledPools, sourceSymbol, targetSymbol],
   );
-
-  const {
-    hasSufficientRuneFee,
-    hasSufficientBnbFee,
-    hasSufficientBnbFeeInBalance,
-    getAmountAfterFee,
-    getThresholdAmount,
-  } = useFee();
 
   const [address, setAddress] = useState<string>('');
   const [invalidAddress, setInvalidAddress] = useState<boolean>(false);
@@ -251,13 +262,6 @@ const SwapSend: React.FC<Props> = (props: Props): JSX.Element => {
     },
     [setAddress],
   );
-
-  /**
-   * Check to consider special cases for BNB
-   */
-  const considerBnb = useMemo((): boolean => {
-    return sourceSymbol?.toUpperCase() === 'BNB';
-  }, [sourceSymbol]);
 
   const handleChangePercent = useCallback(
     (percent: number) => {
@@ -393,7 +397,7 @@ const SwapSend: React.FC<Props> = (props: Props): JSX.Element => {
         showNotification({
           type: 'error',
           message: 'Swap Invalid',
-          description: `Error: ${error.toString()}`,
+          description: `${error.toString()}`,
         });
         setDragReset(true);
         resetTxStatus();
@@ -651,58 +655,81 @@ const SwapSend: React.FC<Props> = (props: Props): JSX.Element => {
     [sourceSymbol, assetData],
   );
 
+  const handleReverseRateType = useCallback(() => {
+    setRateType(!rateType);
+  }, [rateType]);
+
   const getPopupContainer = () => {
     return document.getElementsByClassName('slip-protection')[0] as HTMLElement;
   };
+
+  // const { feeInUSDValue, feePercentValue } = getFeeEstimation({
+  //   asset1: sourceSymbol,
+  //   asset2: targetSymbol,
+  //   amount1: a2b(aa(xValue.amount())),
+  //   amount2: a2b(aa(swapData?.outputAmount?.amount() ?? 0)),
+  // });
+  // const totalFeeValue = `${feeInUSDValue} USD (${feePercentValue}%)`;
+
+  const formatBnbAmount = (value: BaseAmount) => {
+    const token = baseToToken(value);
+    return `${token.amount().toString()} BNB + 1 RUNE`;
+  };
+  const bnbAmount = bnbBaseAmount(assetData);
 
   /**
    * Renders fee
    */
   const renderFee = () => {
-    const bnbAmount = bnbBaseAmount(assetData);
-
-    const formatBnbAmount = (value: BaseAmount) => {
-      const token = baseToToken(value);
-      return `${token.amount().toString()} BNB + 1 RUNE`;
-    };
-
-    const txtLoading = <Text>Fee: ...</Text>;
-
-    const hasBnbFee = hasSufficientBnbFee(xValue, sourceSymbol);
+    const txtLoading = <Text />;
+    // const hasBnbFee = hasSufficientBnbFee(xValue, sourceSymbol);
 
     return (
       <FeeParagraph>
         {RD.fold(
           () => txtLoading,
           () => txtLoading,
-          (_: Error) => <Text>Error: Fee could not be loaded</Text>,
+          (_: Error) => <Text>ERROR: FEE NOT LOADED</Text>,
           (fees: TransferFees) => (
             <>
-              <Text>Fee: {formatBnbAmount(fees.single)}</Text>
-              {considerBnb && hasBnbFee && (
-                <Text>
+              <LabelInfo>
+                {/* <Label>
+                  <b>ESTIMATED FEE: </b>
+                  {totalFeeValue}
+                </Label> */}
+                <Label>
+                  <b>NETWORK FEE:</b> {formatBnbAmount(fees.single)}
+                </Label>
+                <Popover
+                  content={
+                    <Label>
+                      <b>NOTE:</b> 0.1 BNB WILL BE LEFT IN YOUR WALLET FOR
+                      TRANSACTION FEE.
+                    </Label>
+                  }
+                  getPopupContainer={getAppContainer}
+                  placement="top"
+                  overlayStyle={{
+                    padding: '6px',
+                    animationDuration: '0s !important',
+                    animation: 'none !important',
+                  }}
+                >
+                  <PopoverIcon />
+                </Popover>
+              </LabelInfo>
+              {/* {considerBnb && hasBnbFee && (
+                <Label>
                   {' '}
-                  (It will be subtracted from your entered BNB value)
-                </Text>
-              )}
-              {walletAddress && bnbAmount && hasSufficientBnbFeeInBalance && (
-                <>
-                  <br />
-                  <Text style={{ paddingTop: '10px' }}>
-                    Note: 0.1 BNB will be left in your wallet for the
-                    transaction fees.
-                  </Text>
-                </>
-              )}
+                  (IT WILL BE SUBTRACTED FROM YOUR ENTERED BNB VALUE)
+                </Label>
+              )} */}
+
               {walletAddress && bnbAmount && !hasSufficientBnbFeeInBalance && (
-                <>
-                  <br />
-                  <Text type="danger" style={{ paddingTop: '10px' }}>
-                    You have {formatBnbAmount(bnbAmount)} in your wallet,
-                    that&lsquo;s not enough to cover the fee for this
-                    transaction.
-                  </Text>
-                </>
+                <Label type="danger">
+                  YOU HAVE {formatBnbAmount(bnbAmount)} IN YOUR WALLET,
+                  THAT&lsquo;S NOT ENOUGH TO COVER THE FEE FOR TRANSACTION.
+                </Label>
               )}
             </>
           ),
@@ -728,10 +755,6 @@ const SwapSend: React.FC<Props> = (props: Props): JSX.Element => {
   const targetPriceBN = bn(priceIndex[targetSymbol]);
   const targetPrice = isValidBN(targetPriceBN) ? targetPriceBN : outputPrice;
 
-  const ratio = !targetPrice.isEqualTo(bn(0))
-    ? sourcePrice.div(targetPrice)
-    : bn(0);
-
   const isSourcePoolEnabled =
     sourceSymbol === RUNE_SYMBOL ||
     poolData?.[sourceSymbol]?.status === PoolDetailStatusEnum.Enabled;
@@ -744,12 +767,117 @@ const SwapSend: React.FC<Props> = (props: Props): JSX.Element => {
     !isSourcePoolEnabled ||
     !isTargetPoolEnabled;
 
+  const pageTitle = `Swap ${swapSource.toUpperCase()} to ${swapTarget.toUpperCase()}`;
+  const metaDescription = pageTitle;
+
   const slipValue = slip
-    ? `SLIP ${slip.toFormat(2, BigNumber.ROUND_DOWN)}%`
+    ? `${slip.toFormat(2, BigNumber.ROUND_DOWN)}%`
     : Nothing;
+
+  const renderSwapData = () => {
+    const rateValue = getAsset1RateInAsset2({
+      asset1: sourceSymbol,
+      asset2: targetSymbol,
+    });
+    const inverseRateValue = getAsset1RateInAsset2({
+      asset1: targetSymbol,
+      asset2: sourceSymbol,
+    });
+
+    return (
+      <SwapDataWrapper>
+        {rateType && (
+          <LabelInfo>
+            <Label>
+              <b>{rateValue}</b>
+            </Label>
+            <InverseButton
+              sizevalue="small"
+              typevalue="outline"
+              round="true"
+              onClick={handleReverseRateType}
+            >
+              <RetweetOutlined />
+            </InverseButton>
+          </LabelInfo>
+        )}
+        {!rateType && (
+          <LabelInfo>
+            <Label>
+              <b>{inverseRateValue}</b>
+            </Label>
+            <InverseButton
+              sizevalue="small"
+              typevalue="outline"
+              round="true"
+              onClick={handleReverseRateType}
+            >
+              <RetweetOutlined />
+            </InverseButton>
+          </LabelInfo>
+        )}
+        <Label>
+          <b>SLIP: </b>
+          {slipValue}
+        </Label>
+        {renderFee()}
+      </SwapDataWrapper>
+    );
+  };
+
+  const renderSwapConfirmData = () => {
+    const sendAmount = getShortAmount(xValue.amount());
+    const sendData = `${sendAmount} ${swapSource}`;
+    const receiveAmount = getShortAmount(swapData.outputAmount.amount());
+    const receiveData = `${receiveAmount} ${swapTarget}`;
+
+    return (
+      <SwapDataWrapper>
+        <Label>
+          <b>SEND: </b>
+          {sendData}
+        </Label>
+        <Label>
+          <b>RECEIVE: </b>
+          {receiveData}
+        </Label>
+        <Label>
+          <b>SLIP: </b>
+          {slipValue}
+        </Label>
+        <LabelInfo>
+          {/* <Label>
+            <b>ESTIMATED FEE: </b>
+            {totalFeeValue}
+          </Label> */}
+          <Label>
+            <b>NETWORK FEE:</b> 0.000375 BNB
+          </Label>
+          <Popover
+            content={
+              <Label>
+                <b>NOTE:</b> 0.1 BNB WILL BE LEFT IN YOUR WALLET FOR TRANSACTION
+                FEE.
+              </Label>
+            }
+            getPopupContainer={getAppContainer}
+            placement="top"
+            overlayStyle={{
+              padding: '6px',
+              animationDuration: '0s !important',
+              animation: 'none !important',
+            }}
+          >
+            <PopoverIcon />
+          </Popover>
+        </LabelInfo>
+      </SwapDataWrapper>
+    );
+  };
 
   return (
     <ContentWrapper className="swap-detail-wrapper">
+      <Helmet title={pageTitle} content={metaDescription} />
       <SwapAssetCard>
         <ContentTitle>
           swapping {swapSource} &gt;&gt; {swapTarget}
@@ -822,11 +950,11 @@ const SwapSend: React.FC<Props> = (props: Props): JSX.Element => {
               <CardFormHolder className="slip-protection">
                 <CardForm>
                   <PopoverContainer
-                    content={(
+                    content={
                       <PopoverContent>
                         Protect my price (within 3%)
                       </PopoverContent>
-                    )}
+                    }
                     getPopupContainer={getPopupContainer}
                     placement="left"
                     visible
@@ -851,28 +979,7 @@ const SwapSend: React.FC<Props> = (props: Props): JSX.Element => {
                 </CardForm>
               </CardFormHolder>
             </div>
-          </div>
-          <div className="desktop-view">
-            <SwapStatusPanel>
-              <StepBar size={170} />
-              <div className="slip-ratio-labels">
-                {isShortFormatPossible(ratio) ? (
-                  <Label>
-                    {`1 ${swapSource.toUpperCase()} = ${ratio.toFixed(
-                      3,
-                    )} ${swapTarget.toUpperCase()}`}
-                  </Label>
-                ) : (
-                  <>
-                    <Label>{`1 ${swapSource.toUpperCase()} =`}</Label>
-                    <Label>
-                      {`${ratio.toFixed(8)} ${swapTarget.toUpperCase()}`}
-                    </Label>
-                  </>
-                )}
-                <Label>{slipValue}</Label>
-              </div>
-            </SwapStatusPanel>
+            {renderSwapData()}
           </div>
         </div>
         <div className="drag-confirm-wrapper">
@@ -886,14 +993,15 @@ const SwapSend: React.FC<Props> = (props: Props): JSX.Element => {
             onDrag={handleDrag}
           />
         </div>
-        {renderFee()}
       </SwapAssetCard>
       <PrivateModal
         visible={openPrivateModal}
         onOk={handleConfirmTransaction}
         onCancel={handleCancelPrivateModal}
         onPoolAddressLoaded={handlePoolAddressConfirmed}
-      />
+      >
+        {renderSwapConfirmData()}
+      </PrivateModal>
       <SlipVerifyModal
         visible={visibleSlipConfirmModal}
         slipPercent={slipPercent}

@@ -19,7 +19,12 @@ import { bncClient } from '../../../env';
 import Input from '../../uielements/input';
 import Label from '../../uielements/label';
 import showNotification from '../../uielements/notification';
-import { StyledModal, ModalContent, ModalIcon } from './privateModal.style';
+import {
+  StyledModal,
+  ModalContent,
+  ModalIcon,
+  ModalData,
+} from './privateModal.style';
 
 const MODAL_DISMISS_TIME = 15 * 1000; // 15s
 
@@ -28,10 +33,17 @@ type Props = {
   onOk?: () => void;
   onCancel: () => void;
   onPoolAddressLoaded?: () => void;
+  children?: React.ReactNode;
 };
 
 const PrivateModal: React.FC<Props> = (props): JSX.Element => {
-  const { visible, onOk, onCancel, onPoolAddressLoaded = () => {} } = props;
+  const {
+    visible,
+    onOk,
+    onCancel,
+    onPoolAddressLoaded = () => {},
+    children,
+  } = props;
 
   const history = useHistory();
   const dispatch = useDispatch();
@@ -104,7 +116,6 @@ const PrivateModal: React.FC<Props> = (props): JSX.Element => {
       type: 'success',
       message: 'Ledger Signing Successful',
       description: 'Transaction was signed successfully.',
-      duration: 5,
     });
   }, []);
 
@@ -114,7 +125,6 @@ const PrivateModal: React.FC<Props> = (props): JSX.Element => {
       type: 'info',
       message: 'Ledger signing requested',
       description: 'Please approve the transaction on your ledger.',
-      duration: 5,
     });
   }, []);
 
@@ -128,7 +138,6 @@ const PrivateModal: React.FC<Props> = (props): JSX.Element => {
         type: 'error',
         message: 'Ledger Verify Failed',
         description: 'Please conenct your ledger again!',
-        duration: 5,
       });
       return;
     }
@@ -146,7 +155,13 @@ const PrivateModal: React.FC<Props> = (props): JSX.Element => {
     } catch (error) {
       console.log('ledger verify error: ', error);
     }
-  }, [user, handleConfirm, handleLedgerPresign, handleLedgerVerifySuccess, handleLedgerVerifyFailed]);
+  }, [
+    user,
+    handleConfirm,
+    handleLedgerPresign,
+    handleLedgerVerifySuccess,
+    handleLedgerVerifyFailed,
+  ]);
 
   // load pool address before making transaction
   const prevVisible = usePrevious(visible);
@@ -320,6 +335,7 @@ const PrivateModal: React.FC<Props> = (props): JSX.Element => {
       cancelText="CANCEL"
       footer={footer}
     >
+      {children && <ModalData>{children}</ModalData>}
       {renderModalContent()}
     </StyledModal>
   );
