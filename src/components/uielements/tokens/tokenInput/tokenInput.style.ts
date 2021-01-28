@@ -28,12 +28,12 @@ export const TokenInputWrapper = styled.div`
     align-items: center;
 
     .token-input-title {
-      font-size: 12px;
+      font-size: 11px;
       color: ${palette('text', 2)};
       letter-spacing: 1px;
     }
     .token-input-header-label {
-      font-size: 12px;
+      font-size: 11px;
       color: ${palette('text', 2)};
       letter-spacing: 1px;
     }
