@@ -46,7 +46,7 @@
     "@trustwallet/walletconnect": "0.0.12",
     "@walletconnect/qrcode-modal": "^1.0.0-beta.46",
     "antd": "^4.1.4",
-    "axios": "^0.19.2",
+    "axios": "^0.21.1",
     "axios-mock-adapter": "^1.17.0",
     "axios-rate-limit": "^1.2.1",
     "babel-jest": "^25.1.0",
